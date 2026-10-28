@@ -1,0 +1,84 @@
+# Pruebas en cada push: Python (pytest y ruff), base de datos (migraciones y
+# pgTAP con scripts/probar_bd.sh) y Edge Function (deno test).
+# Un pull request muestra el resultado del push de su rama.
+name: Pruebas
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pruebas-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python ${{ matrix.python }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # La versión mínima que admite pyproject.toml y la más reciente.
+        python: ["3.11", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Bibliotecas del sistema para Qt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1 libxkbcommon0 libfontconfig1
+      - name: Dependencias
+        run: pip install -e ".[dev]"
+      - name: pytest
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: pytest -q
+
+  estilo:
+    name: Ruff
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      # La misma versión con la que se formateó el código.
+      - run: pip install ruff==0.17.3
+      - run: ruff check .
+      - run: ruff format --check .
+
+  base-de-datos:
+    name: Migraciones y pgTAP
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: PostgreSQL 16 con pgTAP
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-16 postgresql-16-pgtap
+      # El script levanta su propio PostgreSQL temporal: no usa el servicio del runner.
+      - name: scripts/probar_bd.sh
+        env:
+          PG_BIN: /usr/lib/postgresql/16/bin
+        run: scripts/probar_bd.sh
+
+  edge-function:
+    name: Edge Function (Deno)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno test supabase/functions/admin-usuarios/

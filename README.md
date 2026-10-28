@@ -8,7 +8,7 @@ sobre Supabase (PostgreSQL + Auth + RLS). Está hecha en Python 3.11+ con PySide
 | Capa | Contenido | Estado |
 |---|---|---|
 | 2 · Autenticación y seguridad | Roles, RLS, Edge Function de usuarios, login, sesión, bloqueo por inactividad | **Hecha** y desplegada en Supabase el 2026-10-28 (faltan los ajustes de Auth del panel) |
-| 3 · Panel de administración | Usuarios, productos y precios, reportes, auditoría | **Hecha** y desplegada en Supabase el 2026-10-28 (sus pruebas pgTAP aún no se han ejecutado) |
+| 3 · Panel de administración | Usuarios, productos y precios, reportes, auditoría | **Hecha** y desplegada en Supabase el 2026-10-28 (sus pruebas pgTAP corren en GitHub Actions; falta el primer resultado) |
 | 4 · Panel del trabajador | Consulta de productos, entradas y salidas, lector de códigos | Pendiente |
 
 - Qué hace cada módulo del panel de administración y cómo leer los reportes:
@@ -61,3 +61,7 @@ deno test supabase/functions/admin-usuarios/
 ```
 
 En Linux sin entorno gráfico, Qt necesita `libegl1`, `libgl1`, `libxkbcommon0` y `libfontconfig1`.
+
+En GitHub, [`.github/workflows/pruebas.yml`](.github/workflows/pruebas.yml) ejecuta las tres suites y ruff en
+cada push: Python 3.11 y 3.14, PostgreSQL 16 con pgTAP y Deno 2. Es la forma de correr las pruebas pgTAP
+desde un equipo Windows sin PostgreSQL.
