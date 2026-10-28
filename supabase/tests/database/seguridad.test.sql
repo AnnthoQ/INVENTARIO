@@ -47,14 +47,17 @@ select ok(public.es_operador(), 'trabajador: es operador');
 select ok(not public.es_admin(), 'trabajador: no es administrador');
 select is((select count(*)::int from public.productos), 2, 'trabajador: ve los productos');
 select is((select count(*)::int from public.profiles), 1, 'trabajador: solo ve su propio perfil (sin recursión)');
-select throws_ok($$update public.productos set precio = 9 where id = 1$$,
-                 '42501', 'Solo un administrador puede modificar precios',
-                 'trabajador: no puede cambiar precios');
+-- Desde la capa 3 el catálogo es de solo lectura para los trabajadores: RLS no
+-- da error en un UPDATE bloqueado, simplemente no cambia ninguna fila.
+update public.productos set precio = 9 where id = 1;
+select is((select precio from public.productos where id = 1), 5.50::numeric,
+          'trabajador: no puede cambiar precios');
 select throws_ok($$insert into public.productos (producto, precio) values ('Regla', 2)$$,
                  '42501', 'Solo un administrador puede asignar precios',
                  'trabajador: no puede crear productos con precio');
-select lives_ok($$update public.productos set producto = 'Cuaderno A4 rayado' where id = 1$$,
-                'trabajador: conserva la edición de los demás campos');
+update public.productos set producto = 'Cuaderno A4 rayado' where id = 1;
+select is((select producto::text from public.productos where id = 1), 'Cuaderno A4',
+          'trabajador: tampoco edita los demás campos (capa 3)');
 select lives_ok($$insert into public.movimientos_inventario (producto_id, ubicacion, cantidad_cambio, concepto)
                   values (1, 'ALMACEN', -2, 'VENTA')$$,
                 'trabajador: registra movimientos');

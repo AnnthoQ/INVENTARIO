@@ -8,11 +8,12 @@ sobre Supabase (PostgreSQL + Auth + RLS). Está hecha en Python 3.11+ con PySide
 | Capa | Contenido | Estado |
 |---|---|---|
 | 2 · Autenticación y seguridad | Roles, RLS, Edge Function de usuarios, login, sesión, bloqueo por inactividad | **Hecha** y desplegada en Supabase el 2026-10-28 (faltan los ajustes de Auth del panel) |
-| 3 · Panel de administración | Usuarios, productos y precios, reportes, auditoría | Pendiente |
+| 3 · Panel de administración | Usuarios, productos y precios, reportes, auditoría | **Hecha** y desplegada en Supabase el 2026-10-28 (sus pruebas pgTAP aún no se han ejecutado) |
 | 4 · Panel del trabajador | Consulta de productos, entradas y salidas, lector de códigos | Pendiente |
 
-El modelo de seguridad, las decisiones tomadas y los pasos de despliegue están en
-[`docs/seguridad.md`](docs/seguridad.md).
+- Qué hace cada módulo del panel de administración y cómo leer los reportes:
+  [`docs/panel_admin.md`](docs/panel_admin.md).
+- Modelo de seguridad, decisiones tomadas y pasos de despliegue: [`docs/seguridad.md`](docs/seguridad.md).
 
 ## Estructura
 
@@ -20,13 +21,13 @@ El modelo de seguridad, las decisiones tomadas y los pasos de despliegue están 
 app/
 ├── main.py                  # punto de entrada (python -m app)
 ├── config.py                # .env → Config; rechaza claves service_role
-├── core/                    # cliente Supabase, autenticación, errores, roles, tareas en segundo plano
-├── models/                  # Perfil, SesionUsuario
-├── services/                # UsuariosService (Edge Function admin-usuarios)
+├── core/                    # cliente Supabase, autenticación, errores, roles, formato, tareas en segundo plano
+├── models/                  # perfil y sesión, producto, filas de reportes, entradas de auditoría
+├── services/                # usuarios (Edge Function), productos, reportes y auditoría
 ├── controllers/             # flujo de sesión e inactividad
-└── views/                   # login, bloqueo, cambio de contraseña, ventana principal
+└── views/                   # login, bloqueo, ventana principal y páginas del panel de administración
 supabase/
-├── migrations/              # SQL de la capa 2 (aplicar en orden)
+├── migrations/              # SQL de las capas 2 y 3 (aplicar en orden)
 ├── functions/admin-usuarios # Edge Function (Deno) para crear y administrar usuarios
 └── tests/                   # réplica del esquema actual + pruebas pgTAP
 scripts/probar_bd.sh         # prueba las migraciones en un PostgreSQL temporal

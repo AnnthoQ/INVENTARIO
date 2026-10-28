@@ -1,4 +1,4 @@
-# Capa 2: autenticación y seguridad
+# Seguridad: autenticación, roles y RLS (capas 2 y 3)
 
 ## Modelo de acceso
 
@@ -6,8 +6,8 @@ La fuente única de permisos es `public.profiles` (`role` + `activo`):
 
 | Rol | Etiqueta | Acceso |
 |---|---|---|
-| `admin` | Administrador | Todo: usuarios, precios, corrección de movimientos, auditoría |
-| `trabajador` | Trabajador | Consulta productos, registra movimientos y opera la caja. **No puede asignar ni cambiar precios.** |
+| `admin` | Administrador | Todo: usuarios, catálogo y precios, reportes, corrección de movimientos, auditoría |
+| `trabajador` | Trabajador | Consulta productos y stock, registra movimientos y opera la caja. **No crea, edita ni borra productos** (capa 3) |
 | `host`, `usuario` | Sin acceso | `usuario` es el rol por defecto de cualquier cuenta nueva |
 
 Una cuenta con `activo = false` pierde todo acceso al instante por RLS y queda bloqueada en Supabase Auth.
@@ -17,10 +17,13 @@ Una cuenta con `activo = false` pierde todo acceso al instante por RLS y queda b
 | Regla | Dónde |
 |---|---|
 | Quién ve y escribe cada tabla | Políticas RLS que usan `es_admin()` y `es_operador()` |
-| Solo el admin asigna o cambia precios | Trigger `tr_productos_proteger_precio` (RLS no filtra columnas) |
+| Solo el admin crea, edita o borra productos (capa 3) | Políticas `productos_ins`, `productos_upd` y `productos_del` con `es_admin()` |
+| Solo el admin asigna o cambia precios | Trigger `tr_productos_proteger_precio`: queda como segunda barrera desde la capa 3 |
+| Precio no negativo y nombre no vacío | Restricciones `productos_precio_no_negativo` y `productos_nombre_requerido` |
 | Siempre queda un administrador activo | Trigger `tr_profiles_proteger_ultimo_admin` |
 | Crear usuarios, cambiar rol o estado, restablecer contraseñas | Edge Function `admin-usuarios`, la única con la clave `service_role` |
-| Registro de esas acciones | Tabla `auditoria`: solo la escribe la Edge Function y solo la leen los administradores |
+| Registro de esas acciones | Tabla `auditoria`: la escriben la Edge Function y el trigger `tr_productos_auditar` (altas, ediciones, cambios de precio y bajas de productos). Solo la leen los administradores |
+| Reportes | Vista `stock_actual` con `security_invoker` (aplica el RLS de quien consulta) y función `reporte_mas_vendidos()`, que rechaza a quien no es administrador |
 | Compatibilidad con la app de caja | `caja_operadores` se sincroniza desde `profiles` con un trigger |
 | Menús según el rol | `app/core/roles.py`. Es solo para la interfaz; la barrera real es la base de datos |
 
@@ -64,6 +67,7 @@ Las preguntas del diagnóstico no se respondieron, así que se aplicaron las opc
 | 2.1 | Correo o código + contraseña con Supabase Auth, reutilizando las cuentas `@inv.local` que ya existen |
 | 2.2 | Edge Function `admin-usuarios` |
 | 2.3 | `profiles.role` es la fuente única de roles (ver nota) |
+| 2.4 | Los trabajadores solo consultan el catálogo (respondida el 2026-10-28, capa 3) |
 | 2.5 | «Recordar sesión» opcional; bloqueo a los 15 min; verificación cada 2 min |
 | 2.7 | Contraseñas de 8 a 72 caracteres con letras y números |
 
@@ -73,8 +77,6 @@ JWT tardaría hasta una hora en caducar y además habría que activar el hook a 
 
 ### Pendiente de tu decisión
 
-- **2.4.** Los trabajadores conservan, por compatibilidad, el permiso de crear productos y editar los
-  campos que no son precio. Se decide en la capa 3.
 - **2.6.** MFA (TOTP) para administradores: no implementado.
 
 ## Despliegue en Supabase
@@ -83,8 +85,12 @@ JWT tardaría hasta una hora en caducar y además habría que activar el hook a 
 > «Impacto en la app de caja».
 
 1. **Aplicar las migraciones en orden**, con el MCP de Supabase, `supabase db push` o el SQL editor:
-   1. `supabase/migrations/20261028220643_rol_trabajador.sql`
-   2. `supabase/migrations/20261028220833_seguridad_roles_rls.sql`
+   1. `supabase/migrations/20261028220643_rol_trabajador.sql` (aplicada el 2026-10-28)
+   2. `supabase/migrations/20261028220833_seguridad_roles_rls.sql` (aplicada el 2026-10-28)
+   3. `supabase/migrations/20261028230330_capa3_panel_admin.sql` (aplicada el 2026-10-28)
+
+   Al aplicar una migración con el MCP, Supabase usa la hora de aplicación como versión: renombra el
+   archivo para que el historial local coincida con el remoto.
 2. **Nombrar el primer administrador** desde el SQL editor:
    ```sql
    update public.profiles set role = 'admin' where email = 'tu-correo@ejemplo.com';
@@ -105,6 +111,9 @@ JWT tardaría hasta una hora en caducar y además habría que activar el hook a 
 - Los mismos tres operadores conservan el acceso. Un administrador también opera la caja.
 - Un trabajador ya no puede crear un producto con precio ni cambiar precios: verá
   «Solo un administrador puede asignar/modificar precios».
+- Con la capa 3, un trabajador tampoco puede crear productos sin precio ni editar su nombre o página.
+  Desde el 3 de octubre la app de caja creó un producto con precio por la API; ese paso queda para el
+  administrador. La caja sigue vendiendo y cerrando turnos igual que antes.
 - Si la app de caja llamaba a `verificar_login` o a `buscar_par_traslado` sin sesión, dejará de funcionar.
 - `caja_operadores` ya no se edita a mano: para dar o quitar acceso a la caja se cambia el rol o el estado
   en `profiles` (o en el panel de usuarios de la capa 3).
@@ -123,3 +132,21 @@ El valor `trabajador` del enum no se puede quitar sin recrear el tipo, pero si n
   ante fallos, la contraseña nunca llega a la auditoría).
 - `pytest`: 79 pruebas del cliente (configuración, traducción de errores, login, restauración y rotación
   de tokens, límite de intentos, interfaz sin pantalla y flujo completo de sesión).
+- Antes de aplicar las migraciones de la capa 2 en producción se ensayaron dentro de una transacción
+  revertida, con los datos reales y simulando a cada cuenta (2026-10-28).
+
+### Capa 3
+
+- `pytest`: 144 pruebas en total, 63 nuevas (servicios contra un cliente falso, formato, modelos y páginas
+  con Qt sin pantalla: búsqueda sin tildes, orden por valor, diálogos, confirmaciones y exportación a CSV).
+- `supabase/tests/database/capa3.test.sql`: 23 pruebas pgTAP nuevas, y `seguridad.test.sql` ajustada a la
+  regla 2.4. **No se ejecutaron**: el equipo de desarrollo (Windows) no tiene PostgreSQL. Hay que correr
+  `scripts/probar_bd.sh` en Linux antes de dar la capa por cerrada.
+- La migración se ensayó en producción dentro de un solo bloque revertido, con las cuentas reales: el
+  trabajador no puede escribir en el catálogo ni ver el reporte de más vendidos; cada cambio del
+  administrador queda auditado una vez; se rechazan precios negativos, nombres vacíos y el borrado de
+  productos con movimientos; el reporte de octubre suma S/ 755.10, igual que los cierres de caja.
+- Se aplicó el 2026-10-28 y se repitieron esas comprobaciones sobre la versión aplicada. Desde la API
+  pública y sin sesión, `stock_actual`, `reporte_mas_vendidos` y `productos` responden «permission
+  denied», y `auditoria` devuelve una lista vacía. El asesor de seguridad de Supabase no muestra avisos
+  nuevos.

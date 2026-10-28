@@ -70,6 +70,8 @@ class ErrorServidor(ErrorApp):
 
 # Códigos de PostgREST para JWT ausente, inválido o expirado.
 _CODIGOS_JWT = {"PGRST301", "PGRST302", "PGRST303"}
+# Tabla, vista o función que no existe: falta aplicar una migración.
+_CODIGOS_OBJETO_FALTANTE = {"PGRST202", "PGRST205", "42P01", "42883"}
 
 
 def _traducir_auth(exc: AuthError) -> ErrorApp:
@@ -100,11 +102,24 @@ def _traducir_postgrest(exc: APIError) -> ErrorApp:
     if exc.code in _CODIGOS_JWT:
         return SesionExpirada()
     if exc.code == "42501":
-        # Los triggers de seguridad usan 42501 con un mensaje propio en español.
-        mensaje = exc.message if exc.message and "permission denied" not in exc.message else None
+        # Los triggers de seguridad usan 42501 con un mensaje propio en español;
+        # los de PostgreSQL (permisos, RLS) se reemplazan por el mensaje genérico.
+        mensaje = exc.message
+        if not mensaje or "permission denied" in mensaje or "row-level security" in mensaje:
+            mensaje = None
         return PermisoDenegado(mensaje)
     if exc.code == "P0001":
         return DatosInvalidos(exc.message)
+    if exc.code == "23503":
+        return DatosInvalidos("No se puede eliminar: hay otros registros que dependen de este dato.")
+    if exc.code in {"23502", "23514"}:
+        return DatosInvalidos()
+    if exc.code in _CODIGOS_OBJETO_FALTANTE:
+        log.error("Falta un objeto en la base de datos: %r", exc)
+        return ErrorServidor(
+            "La base de datos aún no tiene los cambios que necesita esta función. "
+            "Avisa al administrador del sistema."
+        )
     log.error("Error de PostgREST: %r", exc)
     return ErrorServidor()
 

@@ -12,4 +12,7 @@ QPushButton:default { font-weight: 600; }
 QListWidget#navegacion { border: none; min-width: 220px; }
 QListWidget#navegacion::item { padding: 10px 12px; }
 QFrame#cabecera { border-bottom: 1px solid palette(mid); }
+QTableView { gridline-color: palette(midlight); }
+QHeaderView::section { padding: 4px 8px; font-weight: 600; }
+QDateEdit, QComboBox, QSpinBox, QDoubleSpinBox { padding: 4px; }
 """

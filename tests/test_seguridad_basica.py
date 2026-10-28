@@ -59,6 +59,28 @@ def test_permission_denied_de_postgres_usa_un_mensaje_propio() -> None:
     assert error.mensaje == PermisoDenegado.mensaje_por_defecto
 
 
+def test_las_politicas_rls_usan_un_mensaje_propio() -> None:
+    error = traducir_error(
+        APIError(
+            {"code": "42501", "message": 'new row violates row-level security policy for table "productos"'}
+        )
+    )
+    assert error.mensaje == PermisoDenegado.mensaje_por_defecto
+
+
+def test_borrar_algo_con_registros_dependientes() -> None:
+    error = traducir_error(APIError({"code": "23503", "message": "violates foreign key constraint"}))
+    assert isinstance(error, DatosInvalidos)
+    assert "dependen" in error.mensaje
+
+
+@pytest.mark.parametrize("codigo", ["PGRST202", "PGRST205", "42P01"])
+def test_falta_una_migracion(codigo: str) -> None:
+    error = traducir_error(APIError({"code": codigo, "message": "not found"}))
+    assert isinstance(error, ErrorServidor)
+    assert "aún no tiene los cambios" in error.mensaje
+
+
 def test_errores_de_la_edge_function_conservan_su_mensaje() -> None:
     error = traducir_error(FunctionsHttpError("Ya existe un usuario con ese correo o código", 409))
     assert isinstance(error, DatosInvalidos)

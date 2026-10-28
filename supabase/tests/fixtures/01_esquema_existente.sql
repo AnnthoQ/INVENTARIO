@@ -1,5 +1,5 @@
--- Réplica de los objetos del proyecto DBL que tocan las migraciones de la
--- capa 2, tal como estaban el 2026-10-28 antes de aplicarlas.
+-- Réplica de los objetos del proyecto DBL que tocan las migraciones de las
+-- capas 2 y 3, tal como estaban el 2026-10-28 antes de aplicarlas.
 -- Solo para pruebas locales.
 
 create type public.user_role as enum ('admin', 'host', 'usuario');
@@ -56,12 +56,34 @@ create table public.caja_items (
   created_at      timestamptz default now()
 );
 
+create unique index caja_items_abierto_uq on public.caja_items (producto_id) where cierre_id is null;
+
+create table public.caja_cierres (
+  id             bigint generated always as identity primary key,
+  fecha          date not null default ((now() at time zone 'America/Lima'))::date,
+  turno          text not null check (turno = any (array['Mañana', 'Tarde'])),
+  operador       text,
+  color          numeric,
+  a3             numeric,
+  scan           numeric,
+  espiral        numeric,
+  impresion      numeric,
+  yape_plin      numeric,
+  n_op           text,
+  total_manual   numeric,
+  libreria_total numeric not null,
+  items          jsonb not null,
+  created_by     uuid default auth.uid(),
+  created_at     timestamptz default now()
+);
+
 alter table public.profiles               enable row level security;
 alter table public.caja_operadores        enable row level security;
 alter table public.productos              enable row level security;
 alter table public.movimientos_inventario enable row level security;
 alter table public.correcciones_kardex    enable row level security;
 alter table public.caja_items             enable row level security;
+alter table public.caja_cierres           enable row level security;
 
 -- Funciones -------------------------------------------------------------------
 
@@ -192,6 +214,23 @@ begin
   end if;
 end $$;
 
+create function public.caja_cerrar(p jsonb)
+returns jsonb language plpgsql set search_path to 'public'
+as $$
+declare v_id bigint; v_items jsonb; v_tot numeric;
+begin
+  select coalesce(jsonb_agg(jsonb_build_object('nombre',nombre,'cantidad',cantidad,'subtotal',cantidad*precio_unitario) order by id),'[]'::jsonb),
+         coalesce(sum(cantidad*precio_unitario),0)
+    into v_items, v_tot from public.caja_items where cierre_id is null;
+  if jsonb_array_length(v_items) = 0 then raise exception 'No hay ventas registradas'; end if;
+  insert into public.caja_cierres(turno,operador,color,a3,scan,espiral,impresion,yape_plin,n_op,total_manual,libreria_total,items)
+  values (p->>'turno', p->>'operador', (p->>'color')::numeric, (p->>'a3')::numeric, (p->>'scan')::numeric,
+          (p->>'espiral')::numeric, (p->>'impresion')::numeric, (p->>'yape_plin')::numeric, p->>'n_op',
+          (p->>'total_manual')::numeric, v_tot, v_items) returning id into v_id;
+  update public.caja_items set cierre_id = v_id where cierre_id is null;
+  return jsonb_build_object('id', v_id, 'items', v_items);
+end $$;
+
 -- Políticas -------------------------------------------------------------------
 
 create policy "Admins can view all" on public.profiles for select
@@ -213,3 +252,8 @@ create policy mov_upd on public.movimientos_inventario for update to authenticat
 create policy mov_del on public.movimientos_inventario for delete to authenticated using (es_admin());
 
 create policy items_all on public.caja_items for all to authenticated using (es_operador()) with check (es_operador());
+
+create policy cierres_sel on public.caja_cierres for select to authenticated using (es_operador());
+create policy cierres_ins on public.caja_cierres for insert to authenticated with check (es_operador());
+create policy cierres_upd on public.caja_cierres for update to authenticated using (es_admin()) with check (es_admin());
+create policy cierres_del on public.caja_cierres for delete to authenticated using (es_admin());

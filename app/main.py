@@ -15,6 +15,7 @@ from app.core.auth_service import AuthService
 from app.core.errores import ConfiguracionInvalida
 from app.core.logging_config import configurar_logging
 from app.core.supabase_client import crear_cliente
+from app.services.contenedor import Servicios
 from app.views.estilo import HOJA_ESTILOS
 
 log = logging.getLogger(__name__)
@@ -39,7 +40,8 @@ def main() -> int:
 
     cliente = crear_cliente(config)
     auth = AuthService(cliente, AlmacenTokens(config.id_proyecto), config.dominio_codigos)
-    controlador = ControladorSesion(app, auth, config)
+    servicios = Servicios.crear(cliente, config.dominio_codigos)
+    controlador = ControladorSesion(app, auth, config, servicios)
     controlador.iniciar()
     return app.exec()
 

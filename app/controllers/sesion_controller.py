@@ -13,6 +13,7 @@ from app.core.auth_service import AuthService
 from app.core.errores import ErrorApp, SinConexion
 from app.core.tareas import ejecutar
 from app.models.perfil import SesionUsuario
+from app.services.contenedor import Servicios
 from app.views.bloqueo_dialog import BloqueoDialog
 from app.views.cambiar_password_dialog import CambiarPasswordDialog
 from app.views.login_dialog import LoginDialog
@@ -22,11 +23,14 @@ log = logging.getLogger(__name__)
 
 
 class ControladorSesion(QObject):
-    def __init__(self, app: QApplication, auth: AuthService, config: Config) -> None:
+    def __init__(
+        self, app: QApplication, auth: AuthService, config: Config, servicios: Servicios | None = None
+    ) -> None:
         super().__init__()
         self._app = app
         self._auth = auth
         self._config = config
+        self._servicios = servicios
         self.login: LoginDialog | None = None
         self.ventana: VentanaPrincipal | None = None
         self.bloqueo: BloqueoDialog | None = None
@@ -67,7 +71,7 @@ class ControladorSesion(QObject):
 
     def mostrar_principal(self, sesion: SesionUsuario) -> None:
         self.login = None
-        self.ventana = VentanaPrincipal(sesion)
+        self.ventana = VentanaPrincipal(sesion, self._servicios)
         self.ventana.cierre_solicitado.connect(self.cerrar_sesion)
         self.ventana.bloqueo_solicitado.connect(self.bloquear)
         self.ventana.cambio_password_solicitado.connect(self._cambiar_password)

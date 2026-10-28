@@ -22,6 +22,11 @@ from PySide6.QtWidgets import (
 
 from app.core.roles import Permiso
 from app.models.perfil import SesionUsuario
+from app.services.contenedor import Servicios
+from app.views.auditoria_pagina import AuditoriaPagina
+from app.views.catalogo_pagina import CatalogoPagina
+from app.views.reportes_pagina import ReportesPagina
+from app.views.usuarios_pagina import UsuariosPagina
 
 
 @dataclass(frozen=True)
@@ -47,16 +52,29 @@ def modulos_visibles(sesion: SesionUsuario) -> list[Modulo]:
     return [m for m in MODULOS if m.permiso is None or sesion.puede(m.permiso)]
 
 
+def crear_pagina_capa3(clave: str, sesion: SesionUsuario, servicios: Servicios) -> QWidget | None:
+    """Páginas del panel de administración; None si el módulo aún no está implementado."""
+    if clave == "usuarios":
+        return UsuariosPagina(servicios.usuarios, sesion)
+    if clave == "catalogo":
+        return CatalogoPagina(servicios.productos)
+    if clave == "reportes":
+        return ReportesPagina(servicios.reportes, servicios.productos)
+    if clave == "auditoria":
+        return AuditoriaPagina(servicios.auditoria)
+    return None
+
+
 class VentanaPrincipal(QMainWindow):
     cierre_solicitado = Signal()
     bloqueo_solicitado = Signal()
     cambio_password_solicitado = Signal()
     cerrada = Signal()
 
-    def __init__(self, sesion: SesionUsuario) -> None:
+    def __init__(self, sesion: SesionUsuario, servicios: Servicios | None = None) -> None:
         super().__init__()
         self.setWindowTitle("Inventario")
-        self.resize(1100, 700)
+        self.resize(1200, 760)
         self._paginas: dict[str, QWidget] = {}
 
         self.navegacion = QListWidget()
@@ -66,12 +84,10 @@ class VentanaPrincipal(QMainWindow):
             item = QListWidgetItem(modulo.titulo)
             item.setData(Qt.ItemDataRole.UserRole, modulo.clave)
             self.navegacion.addItem(item)
-            pagina = (
-                self._pagina_inicio(sesion) if modulo.clave == "inicio" else self._pagina_pendiente(modulo)
-            )
+            pagina = self._crear_pagina(modulo, sesion, servicios)
             self._paginas[modulo.clave] = pagina
             self.paginas.addWidget(pagina)
-        self.navegacion.currentRowChanged.connect(self.paginas.setCurrentIndex)
+        self.navegacion.currentRowChanged.connect(self._mostrar_pagina)
         self.navegacion.setCurrentRow(0)
 
         cuerpo = QHBoxLayout()
@@ -89,6 +105,25 @@ class VentanaPrincipal(QMainWindow):
     @property
     def claves_modulos(self) -> list[str]:
         return list(self._paginas)
+
+    def pagina(self, clave: str) -> QWidget:
+        return self._paginas[clave]
+
+    def ir_a(self, clave: str) -> None:
+        self.navegacion.setCurrentRow(list(self._paginas).index(clave))
+
+    def _mostrar_pagina(self, fila: int) -> None:
+        self.paginas.setCurrentIndex(fila)
+        # Las páginas con datos los consultan la primera vez que se muestran.
+        al_mostrar = getattr(self.paginas.widget(fila), "al_mostrar", None)
+        if al_mostrar is not None:
+            al_mostrar()
+
+    def _crear_pagina(self, modulo: Modulo, sesion: SesionUsuario, servicios: Servicios | None) -> QWidget:
+        if modulo.clave == "inicio":
+            return self._pagina_inicio(sesion)
+        pagina = crear_pagina_capa3(modulo.clave, sesion, servicios) if servicios else None
+        return pagina or self._pagina_pendiente(modulo)
 
     def closeEvent(self, evento: QCloseEvent) -> None:
         self.cerrada.emit()
