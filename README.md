@@ -7,7 +7,7 @@ sobre Supabase (PostgreSQL + Auth + RLS). Está hecha en Python 3.11+ con PySide
 
 | Capa | Contenido | Estado |
 |---|---|---|
-| 2 · Autenticación y seguridad | Roles, RLS, Edge Function de usuarios, login, sesión, bloqueo por inactividad | **Hecha** (migraciones pendientes de aplicar en Supabase) |
+| 2 · Autenticación y seguridad | Roles, RLS, Edge Function de usuarios, login, sesión, bloqueo por inactividad | **Hecha** y desplegada en Supabase el 2026-10-28 (faltan los ajustes de Auth del panel) |
 | 3 · Panel de administración | Usuarios, productos y precios, reportes, auditoría | Pendiente |
 | 4 · Panel del trabajador | Consulta de productos, entradas y salidas, lector de códigos | Pendiente |
 

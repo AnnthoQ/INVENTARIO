@@ -83,8 +83,8 @@ JWT tardaría hasta una hora en caducar y además habría que activar el hook a 
 > «Impacto en la app de caja».
 
 1. **Aplicar las migraciones en orden**, con el MCP de Supabase, `supabase db push` o el SQL editor:
-   1. `supabase/migrations/20261028200000_rol_trabajador.sql`
-   2. `supabase/migrations/20261028200100_seguridad_roles_rls.sql`
+   1. `supabase/migrations/20261028220643_rol_trabajador.sql`
+   2. `supabase/migrations/20261028220833_seguridad_roles_rls.sql`
 2. **Nombrar el primer administrador** desde el SQL editor:
    ```sql
    update public.profiles set role = 'admin' where email = 'tu-correo@ejemplo.com';

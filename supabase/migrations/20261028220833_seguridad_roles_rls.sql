@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Capa 2 · Paso 2 de 2: roles, RLS y endurecimiento de funciones
--- Requiere: 20261028200000_rol_trabajador.sql
+-- Requiere: 20261028220643_rol_trabajador.sql
 --
 -- Modelo de acceso
 --   profiles.role + profiles.activo son la única fuente de permisos:
