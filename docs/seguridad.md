@@ -141,7 +141,8 @@ El valor `trabajador` del enum no se puede quitar sin recrear el tipo, pero si n
   con Qt sin pantalla: búsqueda sin tildes, orden por valor, diálogos, confirmaciones y exportación a CSV).
 - `supabase/tests/database/capa3.test.sql`: 23 pruebas pgTAP nuevas, y `seguridad.test.sql` ajustada a la
   regla 2.4. El equipo de desarrollo (Windows) no tiene PostgreSQL: las ejecuta el workflow
-  `.github/workflows/pruebas.yml` en cada push. Hay que confirmar que pasen antes de dar la capa por cerrada.
+  `.github/workflows/pruebas.yml` en cada push. Pasaron todas en la primera ejecución, el 2026-10-28,
+  junto con pytest en Python 3.11 y 3.14, ruff y Deno.
 - La migración se ensayó en producción dentro de un solo bloque revertido, con las cuentas reales: el
   trabajador no puede escribir en el catálogo ni ver el reporte de más vendidos; cada cambio del
   administrador queda auditado una vez; se rechazan precios negativos, nombres vacíos y el borrado de

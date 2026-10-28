@@ -8,7 +8,7 @@ sobre Supabase (PostgreSQL + Auth + RLS). Está hecha en Python 3.11+ con PySide
 | Capa | Contenido | Estado |
 |---|---|---|
 | 2 · Autenticación y seguridad | Roles, RLS, Edge Function de usuarios, login, sesión, bloqueo por inactividad | **Hecha** y desplegada en Supabase el 2026-10-28 (faltan los ajustes de Auth del panel) |
-| 3 · Panel de administración | Usuarios, productos y precios, reportes, auditoría | **Hecha** y desplegada en Supabase el 2026-10-28 (sus pruebas pgTAP corren en GitHub Actions; falta el primer resultado) |
+| 3 · Panel de administración | Usuarios, productos y precios, reportes, auditoría | **Hecha** y desplegada en Supabase el 2026-10-28 |
 | 4 · Panel del trabajador | Consulta de productos, entradas y salidas, lector de códigos | Pendiente |
 
 - Qué hace cada módulo del panel de administración y cómo leer los reportes:
